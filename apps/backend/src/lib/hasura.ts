@@ -1,4 +1,5 @@
 import { env } from "../config/env";
+import { queryWithTimeout } from "./postgres";
 
 interface HasuraResponse<T> {
   data?: T;
@@ -97,4 +98,25 @@ export async function fetchRecentEscrowStatuses(limit = 50): Promise<EscrowStatu
 
   const data = await hasuraRequest<EscrowStatusQueryResult>(query, { limit });
   return data.escrow_transactions ?? [];
+}
+
+/**
+ * Fetches recent escrow statuses directly from Postgres over `DATABASE_URL`.
+ *
+ * Uses the shared pool in `./postgres`, which applies explicit pool size,
+ * idle timeout, connection timeout, and statement timeout settings rather
+ * than relying on driver defaults. Prefer this over the Hasura GraphQL path
+ * when a direct connection is available.
+ */
+export async function fetchRecentEscrowStatusesFromPostgres(
+  limit = 50
+): Promise<EscrowStatusRow[]> {
+  const result = await queryWithTimeout<EscrowStatusRow>(
+    `SELECT id, contract_id, status, updated_at
+       FROM escrow_transactions
+      ORDER BY updated_at DESC
+      LIMIT $1`,
+    [limit]
+  );
+  return result.rows ?? [];
 }

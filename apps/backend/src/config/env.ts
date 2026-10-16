@@ -44,6 +44,18 @@ export const envSchema = z.object({
   // Postgres connection for node-pg-migrate (`yarn migrate:up`) — #250
   DATABASE_URL: z.string().url("DATABASE_URL must be a valid URL").optional(),
 
+  // Postgres connection pool + timeout configuration (#412). Explicitly set
+  // rather than relying on driver defaults so a long-idle connection or an
+  // unbounded pool can't cause subtle production issues under load.
+  //   PG_POOL_MAX             — max clients held in the pool
+  //   PG_IDLE_TIMEOUT_MS      — how long an idle client is kept before closing
+  //   PG_CONNECTION_TIMEOUT_MS— how long to wait for a new client before failing
+  //   PG_QUERY_TIMEOUT_MS     — per-query statement timeout
+  PG_POOL_MAX: z.coerce.number().int().positive().default(10),
+  PG_IDLE_TIMEOUT_MS: z.coerce.number().int().nonnegative().default(30000),
+  PG_CONNECTION_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  PG_QUERY_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+
   // Trustless Work escrow API + dispute-resolver signing key — required to
   // execute refunds on-chain (#252). Unset → refund execution fails with 503.
   TRUSTLESS_WORK_API_URL: z
@@ -56,6 +68,12 @@ export const envSchema = z.object({
     .regex(/^S[A-Z2-7]{55}$/, "TRUSTLESS_WORK_DISPUTE_RESOLVER_SECRET must be a Stellar secret key (S...)")
     .optional(),
   STELLAR_NETWORK: z.enum(["testnet", "mainnet"]).default("testnet"),
+
+  // Frontend's independently-configured network (NEXT_PUBLIC_TRUSTLESS_NETWORK),
+  // surfaced to the backend so the startup check (#414) can confirm both
+  // services agree on testnet vs. mainnet. Optional: when unset the check is
+  // skipped (e.g. local dev where the frontend isn't running).
+  FRONTEND_TRUSTLESS_NETWORK: z.enum(["testnet", "mainnet"]).optional(),
 
   // Error tracking (#111) — unset in local dev, Sentry stays disabled
   SENTRY_DSN: z.string().url("SENTRY_DSN must be a valid URL").optional(),
