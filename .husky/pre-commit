@@ -8,21 +8,75 @@ if ! command -v gitleaks >/dev/null 2>&1; then
   echo "⚠️  WARNING: gitleaks is not installed — skipping secret scan."
   echo "   Install it to catch secrets locally before CI blocks your PR:"
   echo "   https://github.com/gitleaks/gitleaks#installing"
-  exit 0
+else
+  echo "🔍 Scanning staged files for secrets with gitleaks..."
+
+  gitleaks protect --staged --no-git --config=.gitleaks.toml
+
+  EXIT_CODE=$?
+
+  if [ $EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "🚨 gitleaks found potential secrets in your staged changes."
+    echo "   Please remove them before committing."
+    echo "   If this is a false positive, update .gitleaks.toml to allowlist it."
+    exit 1
+  fi
+
+  echo "✅ No secrets detected."
 fi
 
-echo "🔍 Scanning staged files for secrets with gitleaks..."
+# --- Migration sequence-number collision check -------------------------------
+# Block commits that introduce a migration file whose leading sequence number
+# collides with an existing migration. This catches duplicate numbers (e.g. two
+# `002` migrations) before a PR is even opened.
 
-gitleaks protect --staged --no-git --config=.gitleaks.toml
+MIGRATIONS_DIR="apps/backend/src/db/migrations"
 
-EXIT_CODE=$?
+if [ -d "$MIGRATIONS_DIR" ]; then
+  STAGED_MIGRATIONS=$(git diff --cached --name-only --diff-filter=ACM -- "$MIGRATIONS_DIR" | grep -E '\.sql$')
 
-if [ $EXIT_CODE -ne 0 ]; then
-  echo ""
-  echo "🚨 gitleaks found potential secrets in your staged changes."
-  echo "   Please remove them before committing."
-  echo "   If this is a false positive, update .gitleaks.toml to allowlist it."
-  exit 1
+  if [ -n "$STAGED_MIGRATIONS" ]; then
+    echo "🔍 Checking staged migrations for duplicate sequence numbers..."
+
+    EXISTING_MIGRATIONS=$(ls "$MIGRATIONS_DIR" 2>/dev/null | grep -E '\.sql$')
+
+    COLLISION=0
+
+    for staged in $STAGED_MIGRATIONS; do
+      staged_base=$(basename "$staged")
+      staged_num=$(printf '%s' "$staged_base" | sed -n 's/^\([0-9][0-9]*\).*/\1/p')
+
+      if [ -z "$staged_num" ]; then
+        continue
+      fi
+
+      for existing in $EXISTING_MIGRATIONS; do
+        if [ "$existing" = "$staged_base" ]; then
+          continue
+        fi
+
+        existing_num=$(printf '%s' "$existing" | sed -n 's/^\([0-9][0-9]*\).*/\1/p')
+
+        if [ -z "$existing_num" ]; then
+          continue
+        fi
+
+        if [ "$staged_num" = "$existing_num" ]; then
+          echo ""
+          echo "🚨 Duplicate migration sequence number detected: $staged_num"
+          echo "   Staged:   $staged_base"
+          echo "   Existing: $existing"
+          echo "   Please renumber your migration so each sequence number is unique."
+          COLLISION=1
+        fi
+      done
+    done
+
+    if [ $COLLISION -ne 0 ]; then
+      exit 1
+    fi
+
+    echo "✅ No duplicate migration sequence numbers."
+  fi
 fi
-
-echo "✅ No secrets detected."
