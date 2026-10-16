@@ -1,0 +1,120 @@
+name: Migration Collision Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-migration-collisions:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Check for migration number collisions
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const MARKER = '<!-- migration-collision-check -->';
+            const MIGRATION_RE = /^apps\/backend\/src\/db\/migrations\/(\d+)_[^/]*\.sql$/;
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const currentPr = context.payload.pull_request.number;
+
+            async function collectMigrationNumbers(prNumber) {
+              const numbers = new Set();
+              const files = await github.paginate(
+                github.rest.pulls.listFiles,
+                { owner, repo, pull_number: prNumber, per_page: 100 }
+              );
+              for (const file of files) {
+                if (file.status !== 'added') continue;
+                const match = MIGRATION_RE.exec(file.filename);
+                if (match) {
+                  numbers.add(match[1]);
+                }
+              }
+              return numbers;
+            }
+
+            const currentNumbers = await collectMigrationNumbers(currentPr);
+
+            // Map of migration number -> array of other PR numbers
+            const collisions = new Map();
+
+            if (currentNumbers.size > 0) {
+              const openPrs = await github.paginate(
+                github.rest.pulls.list,
+                { owner, repo, state: 'open', per_page: 100 }
+              );
+
+              for (const pr of openPrs) {
+                if (pr.number === currentPr) continue;
+                const otherNumbers = await collectMigrationNumbers(pr.number);
+                for (const num of otherNumbers) {
+                  if (currentNumbers.has(num)) {
+                    if (!collisions.has(num)) {
+                      collisions.set(num, []);
+                    }
+                    collisions.get(num).push(pr.number);
+                  }
+                }
+              }
+            }
+
+            // Find any existing bot comment with our marker
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number: currentPr, per_page: 100 }
+            );
+            const existing = comments.find(
+              (c) => c.body && c.body.includes(MARKER)
+            );
+
+            if (collisions.size === 0) {
+              if (existing) {
+                await github.rest.issues.deleteComment({
+                  owner,
+                  repo,
+                  comment_id: existing.id,
+                });
+              }
+              core.info('No migration number collisions detected.');
+              return;
+            }
+
+            const lines = [];
+            for (const [num, prs] of [...collisions.entries()].sort()) {
+              const refs = prs.map((n) => `#${n}`).join(', ');
+              lines.push(`- Migration number \`${num}\` also added in ${refs}`);
+            }
+
+            const body = [
+              MARKER,
+              '## ⚠️ Migration number collision detected',
+              '',
+              'This PR adds migration file(s) whose sequence number(s) collide with migration(s) added in other open PR(s):',
+              '',
+              ...lines,
+              '',
+              'Migration numbers must be unique across all open PRs to avoid merge conflicts and out-of-order application. Please coordinate with the other PR author(s) and renumber one of the migrations before merging.',
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: currentPr,
+                body,
+              });
+            }

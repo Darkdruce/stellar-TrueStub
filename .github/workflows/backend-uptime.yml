@@ -10,6 +10,24 @@ jobs:
   uptime:
     runs-on: ubuntu-latest
     steps:
+      - name: Verify BACKEND_HEALTH_URL hostname resolves
+        run: |
+          HEALTH_URL="${{ vars.BACKEND_HEALTH_URL }}"
+          if [ -z "$HEALTH_URL" ]; then
+            echo "BACKEND_HEALTH_URL is not configured; skipping DNS check"
+            exit 0
+          fi
+          HOST=$(echo "$HEALTH_URL" | sed -E 's#^[a-zA-Z][a-zA-Z0-9+.-]*://##' | sed -E 's#^[^/]*@##' | sed -E 's#^\[([^]]*)\].*#\1#' | sed -E 's#^([^/:?]+).*#\1#')
+          if [ -z "$HOST" ]; then
+            echo "BACKEND_HEALTH_URL appears stale or misconfigured: could not extract hostname from '$HEALTH_URL'"
+            exit 1
+          fi
+          if ! getent hosts "$HOST" > /dev/null 2>&1; then
+            echo "BACKEND_HEALTH_URL appears stale or misconfigured: $HOST did not resolve"
+            exit 1
+          fi
+          echo "BACKEND_HEALTH_URL hostname resolved: $HOST"
+
       - name: Ping backend health endpoint
         run: |
           curl --fail --silent --show-error \
