@@ -17,8 +17,24 @@ import { HasuraService } from "../services/hasura.service";
  */
 export const webhookRouter = Router();
 
-/** Trustless Work status → stored status. Unknown statuses are rejected. */
+/**
+ * Trustless Work status → stored status.
+ *
+ * Source: Trustless Work's escrow API documentation for the escrow `status`
+ * field (https://docs.trustlesswork.com — "Escrow Status" / escrow lifecycle).
+ * The documented lifecycle values are: created, funded, active, completed,
+ * released, disputed, resolved, cancelled, expired, refunded. We also accept
+ * the common aliases Trustless Work has used in webhook payloads (pending,
+ * in_progress, in_review, failed) so a legitimate delivery is never rejected
+ * merely because it uses a synonym for a documented state.
+ *
+ * Anything not listed here is an intentional rejection: it is not a status
+ * Trustless Work documents, so a 400 is the correct response (and is alerted
+ * on below, since it likely signals a new upstream status we must map).
+ */
 export const STATUS_MAP: Record<string, string> = {
+  // Documented lifecycle values.
+  created: "pending",
   funded: "funded",
   active: "funded",
   completed: "completed",
@@ -26,6 +42,13 @@ export const STATUS_MAP: Record<string, string> = {
   disputed: "disputed",
   resolved: "resolved",
   cancelled: "cancelled",
+  expired: "expired",
+  refunded: "refunded",
+  // Documented aliases / historical payload variants.
+  pending: "pending",
+  in_progress: "funded",
+  in_review: "disputed",
+  failed: "cancelled",
 };
 
 /**
@@ -189,6 +212,18 @@ webhookRouter.post("/escrow-status", async (req: Request, res: Response) => {
   const normalizedStatus = STATUS_MAP[status.toLowerCase()];
   if (!normalizedStatus) {
     logger.warn({ status }, "[webhook:escrow-status] Unknown status received");
+    // A 400 here almost always means Trustless Work introduced a status value
+    // we do not map yet — an integration gap, not a malformed request. Alert
+    // on it distinctly from generic delivery failures so it is visible rather
+    // than buried in logs (#410).
+    Sentry.captureMessage("[webhook:escrow-status] Unmapped escrow status received", {
+      level: "warning",
+      tags: {
+        alert: "webhook.unmapped_status",
+        webhook: "escrow-status",
+      },
+      extra: { status },
+    });
     return res.status(400).json({ error: `Unknown status: ${status}` });
   }
 
