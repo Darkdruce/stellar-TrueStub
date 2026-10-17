@@ -92,7 +92,7 @@ export function ReviewsList({
                   </div>
                   <div>
                     <span className="font-medium text-sm text-foreground">
-                      {review.reviewer_name || "Verified Trader"}
+                      {review.reviewer_name || t("ratings.verifiedTrader")}
                     </span>
                     <Badge variant="secondary" className="ml-2 text-[10px] capitalize font-normal">
                       {review.role}
