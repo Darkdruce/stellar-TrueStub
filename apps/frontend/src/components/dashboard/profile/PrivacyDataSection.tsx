@@ -164,7 +164,7 @@ export function PrivacyDataSection() {
           </div>
           <Button variant="destructive" size="sm" onClick={handleOpenDelete}>
             <Trash2 className="mr-2 h-4 w-4" />
-            Delete account
+            {t("privacy.deleteTitle")}
           </Button>
         </div>
       </div>
