@@ -42,13 +42,13 @@ interface RaiseDisputeModalProps {
 }
 
 const DISPUTE_REASONS = [
-  { value: "ticket_not_delivered", label: "Ticket / Asset not delivered or transferred" },
-  { value: "invalid_ticket", label: "Invalid ticket barcode / already redeemed" },
-  { value: "wrong_category", label: "Incorrect seat / category / date differs from listing" },
-  { value: "event_cancelled", label: "Event was officially cancelled with no replacement" },
-  { value: "seller_unresponsive", label: "Seller unresponsive after payment confirmation" },
-  { value: "buyer_non_compliance", label: "Buyer failed to confirm delivery after verified transfer" },
-  { value: "other_breach", label: "Other contractual breach / terms violation" },
+  { value: "ticket_not_delivered", label: "disputes.exportLabel" },
+  { value: "invalid_ticket", label: "disputes.invalidTicket" },
+  { value: "wrong_category", label: "disputes.wrongCategory" },
+  { value: "event_cancelled", label: "disputes.eventCancelled" },
+  { value: "seller_unresponsive", label: "disputes.sellerUnresponsive" },
+  { value: "buyer_non_compliance", label: "disputes.buyerNonCompliance" },
+  { value: "other_breach", label: "disputes.otherBreach" },
 ];
 
 export function RaiseDisputeModal({
@@ -137,8 +137,7 @@ export function RaiseDisputeModal({
             <CheckCircle2 className="h-12 w-12 text-emerald-500 animate-in zoom-in-50 duration-300" />
             <h3 className="text-xl font-semibold text-foreground">{t("disputes.submitted")}</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Escrow <strong>{engagementId || contractId}</strong> is now marked as <strong>DISPUTED</strong>.
-              All funds remain locked while the on-chain arbitrator reviews the evidence.
+              {t("disputes.successDescription", { id: engagementId || contractId })}
             </p>
           </div>
         ) : (
@@ -178,7 +177,7 @@ export function RaiseDisputeModal({
                   <SelectContent>
                     {DISPUTE_REASONS.map((r) => (
                       <SelectItem key={r.value} value={r.value}>
-                        {r.label}
+                        {t(r.label)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -221,7 +220,7 @@ export function RaiseDisputeModal({
                 onClick={() => setOpen(false)}
                 disabled={isSubmitting}
               >
-                Cancel
+                {t("disputes.cancel")}
               </Button>
               <Button
                 type="submit"
