@@ -35,10 +35,8 @@ export default function LanguageSwitcher({
     LANGUAGES[0];
 
   const handleLanguageChange = (code: string) => {
+    // Persisted to localStorage by the languageChanged listener in i18n/config.
     i18n.changeLanguage(code);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("i18nextLng", code);
-    }
   };
 
   if (!mounted) {

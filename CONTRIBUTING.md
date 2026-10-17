@@ -20,15 +20,44 @@ See the [root README](README.md) for the full pitch and architecture, and
 
 ## Getting set up
 
+### Prerequisites
+
+- Node.js 20 or later (the root and workspace package manifests enforce this).
+- Corepack enabled, which selects the Yarn 4.9.4 version pinned in the root
+   `package.json`.
+
+Check the selected Yarn version with `yarn --version`; it should report
+`4.9.4`.
+
 ```bash
 git clone https://github.com/<your_user>/stellar-TrueStub
 cd stellar-TrueStub
+corepack enable
 yarn install
+cp apps/frontend/.env.example apps/frontend/.env.local
+```
+
+Before starting the app, fill in the Firebase client settings and a reachable
+Hasura GraphQL endpoint in `apps/frontend/.env.local`. These are needed for
+authentication and data-backed pages; Firebase and Hasura credentials are
+provided by the project maintainer. Trustless Work credentials are only needed
+for escrow operations. See [`apps/frontend/README.md`](apps/frontend/README.md)
+for where each value comes from and which values are optional.
+
+```bash
 yarn dev              # runs apps/frontend on http://localhost:3000
 ```
 
-For frontend-specific environment variables (Firebase, Hasura, Trustless
-Work), follow [`apps/frontend/README.md`](apps/frontend/README.md).
+The frontend can start without the sibling backend. Features that call it,
+including operator analytics, require `NEXT_PUBLIC_BACKEND_URL` to point at a
+running backend. To run that service locally, copy
+`apps/backend/.env.example` to `apps/backend/.env`, then set `DATABASE_URL`,
+`HASURA_GRAPHQL_URL`, `HASURA_ADMIN_SECRET`, and the Firebase Admin service
+account values. Sentry is optional. Start it in a second terminal with
+`yarn workspace @truestub/backend dev`. Apply SQL migrations with
+`yarn workspace @truestub/backend migrate:up` only when a local Postgres
+database is configured; Hasura metadata must separately track the tables as
+described in [`docs/DATABASE.md`](docs/DATABASE.md).
 
 ## Finding something to work on
 
@@ -58,6 +87,40 @@ are a good place to start.
 The full walkthrough (forking, branch naming, PR expectations) is in
 [`docs/CONTRIBUTORS_GUIDELINE.md`](docs/CONTRIBUTORS_GUIDELINE.md).
 
+## ✅ Verify before closing an issue
+
+This project has a recurring pattern: issues get closed by a PR that addresses part
+of the problem, or fixes it in a way that gets reverted by a later conflicting PR,
+without the closer re-verifying the original acceptance criteria against the current
+branch.
+
+**Before marking an issue as resolved (merging the PR or manually closing), run the
+specific grep / test / repro step from the issue's "Acceptance Criteria" against your
+current branch — not just against your PR's own diff.**
+
+If the issue body contains a `verify:` fenced block, run it locally:
+
+```bash
+# Example from an issue body:
+# ```verify
+# grep -r "TODO.*getCacheStats" apps/frontend/src/components/performance/CacheStatus.tsx
+# ```
+# A zero-match result (exit 1 / no output) means the fix is in place.
+```
+
+The PR template includes a corresponding checklist item. Do not skip it.
+If you cannot run the verification step (e.g., it requires secrets), note that
+explicitly in the PR and ask a maintainer to verify on their end.
+
+## Tracking mocked / unwired flows
+
+If you add a `// TODO: Replace with actual API call` marker (or any other
+GraphQL-wiring placeholder), **pair it with a filed tracking issue** and add
+a row to [`docs/GRAPHQL_WIRING_STATUS.md`](docs/GRAPHQL_WIRING_STATUS.md).
+That doc is the single source of truth for which flows are real vs. mocked,
+so keeping it in sync avoids a fresh repo-wide grep every time someone wants
+to know how much of the app is still stubbed.
+
 ## Reporting bugs
 
 Open an issue using the bug report template. Include reproduction steps,
@@ -71,8 +134,9 @@ etc.).
 
 ## Code of conduct
 
-Be respectful and constructive in issues, PRs, and reviews. Disagreements
-about code are fine; personal attacks aren't.
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
+By participating, you are expected to uphold it. Please report unacceptable
+behaviour via the process described in [SECURITY.md](SECURITY.md).
 
 ---
 

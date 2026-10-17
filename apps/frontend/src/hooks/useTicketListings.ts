@@ -1,4 +1,8 @@
-import { MOCK_LISTINGS, TicketListing } from "@/lib/mockData/listings";
+"use client";
+
+import { useQuery } from "@apollo/client/react";
+import { GET_TICKET_LISTINGS } from "@/graphql/queries/ticket-listing-queries";
+import type { ListingOccupancyStatus } from "@/components/dashboard/listings/ListingStatusBadge";
 
 interface UseTicketListingsOptions {
   limit: number;
@@ -6,44 +10,100 @@ interface UseTicketListingsOptions {
   search?: string;
 }
 
+/** A ticket listing row as rendered by browse/search tables. */
+export interface TicketListingRow {
+  id: string;
+  name: string;
+  location: string;
+  price: number;
+  status: ListingOccupancyStatus;
+  promoted: boolean;
+  offers: number;
+  created_at: string;
+}
+
 interface UseTicketListingsResult {
   data: {
-    ticket_listings: TicketListing[];
+    ticket_listings: TicketListingRow[];
     ticket_listings_aggregate: { aggregate: { count: number } };
   };
   loading: boolean;
-  error: undefined;
+  error: Error | undefined;
+}
+
+interface GetTicketListingsData {
+  ticket_listings: Array<{
+    id: number | string;
+    name: string;
+    location: string;
+    price: number | string;
+    status: string;
+    promoted: boolean | null;
+    created_at: string;
+    listing_offers_aggregate?: { aggregate?: { count: number } | null } | null;
+  }>;
+  ticket_listings_aggregate: { aggregate?: { count: number } | null };
 }
 
 /**
- * Drop-in replacement for Apollo's useQuery(GET_TICKET_LISTINGS, ...)
- * Returns the SAME shape so components don't need to change.
+ * Builds the Hasura `where` clause for a free-text search over name/location.
+ */
+function buildWhere(search: string) {
+  const query = search.trim();
+  if (!query) return {};
+
+  const pattern = `%${query}%`;
+  return {
+    _or: [
+      { name: { _ilike: pattern } },
+      { location: { _ilike: pattern } },
+    ],
+  };
+}
+
+/**
+ * Paginated, searchable ticket listings backed by Hasura (GET_TICKET_LISTINGS).
+ * Filtering and pagination happen server-side via query variables.
  */
 export function useTicketListings({
   limit,
   offset,
   search = "",
 }: UseTicketListingsOptions): UseTicketListingsResult {
-  const query = search.trim().toLowerCase();
+  const { data, loading, error } = useQuery(GET_TICKET_LISTINGS, {
+    variables: {
+      limit,
+      offset,
+      where: buildWhere(search),
+      order_by: [{ created_at: "desc" as const }],
+    },
+  });
 
-  const filtered = query
-    ? MOCK_LISTINGS.filter(
-        (apartment) =>
-          apartment.name.toLowerCase().includes(query) ||
-          apartment.location.toLowerCase().includes(query),
-      )
-    : MOCK_LISTINGS;
+  const result = data as GetTicketListingsData | undefined;
 
-  const paged = filtered.slice(offset, offset + limit);
+  const listings: TicketListingRow[] = (result?.ticket_listings ?? []).map(
+    (listing) => ({
+      id: String(listing.id),
+      name: listing.name,
+      location: listing.location,
+      price: Number(listing.price),
+      status: listing.status as ListingOccupancyStatus,
+      promoted: Boolean(listing.promoted),
+      offers: listing.listing_offers_aggregate?.aggregate?.count ?? 0,
+      created_at: listing.created_at,
+    }),
+  );
 
   return {
     data: {
-      ticket_listings: paged,
+      ticket_listings: listings,
       ticket_listings_aggregate: {
-        aggregate: { count: filtered.length },
+        aggregate: {
+          count: result?.ticket_listings_aggregate.aggregate?.count ?? 0,
+        },
       },
     },
-    loading: false,
-    error: undefined,
+    loading,
+    error: error as Error | undefined,
   };
 }

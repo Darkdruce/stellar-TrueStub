@@ -1,4 +1,5 @@
 import { env } from "../config/env";
+import { queryWithTimeout } from "./postgres";
 
 interface HasuraResponse<T> {
   data?: T;
@@ -11,7 +12,7 @@ export interface HasuraClient {
 
 function requireHasuraConfig(): { url: string; adminSecret: string } {
   const url = env.HASURA_GRAPHQL_URL;
-  const adminSecret = env.HASURA_GRAPHQL_ADMIN_SECRET;
+  const adminSecret = env.HASURA_ADMIN_SECRET;
 
   if (!url || !adminSecret) {
     throw new Error(
@@ -62,4 +63,60 @@ export async function hasuraRequest<T>(
   variables: Record<string, unknown> = {}
 ): Promise<T> {
   return hasuraClient.request<T>(query, variables);
+}
+
+export interface EscrowStatusRow {
+  id: string;
+  contract_id: string;
+  status: string;
+  updated_at: string;
+}
+
+interface EscrowStatusQueryResult {
+  escrow_transactions: EscrowStatusRow[];
+}
+
+/**
+ * Fetches a sample of recent escrow transactions from Hasura so their stored
+ * status can be reconciled against Trustless Work's live state.
+ *
+ * This is a read-only helper used by the reconciliation job; it does not touch
+ * the webhook write path that remains the single authoritative writer of
+ * `escrow_transactions.status`.
+ */
+export async function fetchRecentEscrowStatuses(limit = 50): Promise<EscrowStatusRow[]> {
+  const query = `
+    query RecentEscrowStatuses($limit: Int!) {
+      escrow_transactions(order_by: { updated_at: desc }, limit: $limit) {
+        id
+        contract_id
+        status
+        updated_at
+      }
+    }
+  `;
+
+  const data = await hasuraRequest<EscrowStatusQueryResult>(query, { limit });
+  return data.escrow_transactions ?? [];
+}
+
+/**
+ * Fetches recent escrow statuses directly from Postgres over `DATABASE_URL`.
+ *
+ * Uses the shared pool in `./postgres`, which applies explicit pool size,
+ * idle timeout, connection timeout, and statement timeout settings rather
+ * than relying on driver defaults. Prefer this over the Hasura GraphQL path
+ * when a direct connection is available.
+ */
+export async function fetchRecentEscrowStatusesFromPostgres(
+  limit = 50
+): Promise<EscrowStatusRow[]> {
+  const result = await queryWithTimeout<EscrowStatusRow>(
+    `SELECT id, contract_id, status, updated_at
+       FROM escrow_transactions
+      ORDER BY updated_at DESC
+      LIMIT $1`,
+    [limit]
+  );
+  return result.rows ?? [];
 }

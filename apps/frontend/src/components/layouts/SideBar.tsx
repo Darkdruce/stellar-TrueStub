@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Bell, Building2, Heart, Home, LayoutDashboard, PlusCircle, PlusSquare, Shield, Users } from "lucide-react";
+import { Bell, BellRing, Building2, Heart, Wallet, Home, LayoutDashboard, PlusCircle, PlusSquare, Shield, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/auth/LogoutButton";
@@ -150,10 +150,40 @@ export function SideBar({
           className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent transition-colors duration-200 w-full group relative dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
         >
           <Heart className="w-6 h-6 shrink-0 dark:text-gray-400" />
-          <span className="md:hidden lg:block">Favorite</span>
+          <span className="md:hidden lg:block">Saved</span>
           {/* Tooltip for rail mode */}
           <span className="hidden md:group-hover:block lg:group-hover:hidden absolute left-14 bg-popover text-popover-foreground px-2 py-1 rounded shadow-md text-xs z-50 whitespace-nowrap">
-            Favorite
+            Saved
+          </span>
+        </Link>
+        <Link
+          href="/dashboard/saved-searches"
+          onClick={onClose}
+          className={cn(
+            "flex items-center gap-3 p-2 rounded-lg hover:bg-accent transition-colors duration-200 w-full group relative dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white",
+            pathname === "/dashboard/saved-searches" &&
+              "bg-accent font-medium dark:bg-gray-800 dark:text-white",
+          )}
+        >
+          <BellRing className="w-6 h-6 shrink-0 dark:text-gray-400" />
+          <span className="md:hidden lg:block">Saved searches</span>
+          <span className="hidden md:group-hover:block lg:group-hover:hidden absolute left-14 bg-popover text-popover-foreground px-2 py-1 rounded shadow-md text-xs z-50 whitespace-nowrap">
+            Saved searches
+          </span>
+        </Link>
+        <Link
+          href="/dashboard/earnings"
+          onClick={onClose}
+          className={cn(
+            "flex items-center gap-3 p-2 rounded-lg hover:bg-accent transition-colors duration-200 w-full group relative dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white",
+            pathname === "/dashboard/earnings" &&
+              "bg-accent font-medium dark:bg-gray-800 dark:text-white",
+          )}
+        >
+          <Wallet className="w-6 h-6 shrink-0 dark:text-gray-400" />
+          <span className="md:hidden lg:block">Earnings</span>
+          <span className="hidden md:group-hover:block lg:group-hover:hidden absolute left-14 bg-popover text-popover-foreground px-2 py-1 rounded shadow-md text-xs z-50 whitespace-nowrap">
+            Earnings
           </span>
         </Link>
         <Link
@@ -168,18 +198,30 @@ export function SideBar({
           <span>Users</span>
         </Link>
         <Link
-          href="/dashboard/ticket_listings"
+          href="/dashboard/admin/moderation"
+          onClick={onClose}
+          className={cn(
+            "flex items-center gap-2 p-2 rounded-lg hover:bg-accent transition-colors duration-200 w-full dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white",
+            pathname === "/dashboard/admin/moderation" &&
+              "bg-accent font-medium dark:bg-gray-800 dark:text-white",
+          )}
+        >
+          <ShieldAlert className="w-6 h-6 dark:text-gray-400" />
+          <span>Moderation</span>
+        </Link>
+        <Link
+          href="/dashboard/listings"
           onClick={onClose}
           className={cn(
             "flex items-center gap-3 p-2 rounded-lg hover:bg-accent transition-colors duration-200 w-full group relative dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white",
-            pathname?.startsWith("/dashboard/ticket_listings") &&
+            pathname?.startsWith("/dashboard/listings") &&
               "bg-accent font-medium dark:bg-gray-800 dark:text-white",
           )}
         >
           <Home className="w-6 h-6 shrink-0 dark:text-gray-400" />
-          <span className="md:hidden lg:block">My ticket_listings</span>
+          <span className="md:hidden lg:block">My Listings</span>
           <span className="hidden md:group-hover:block lg:group-hover:hidden absolute left-14 bg-popover text-popover-foreground px-2 py-1 rounded shadow-md text-xs z-50 whitespace-nowrap">
-            My ticket_listings
+            My Listings
           </span>
         </Link>
       </div>

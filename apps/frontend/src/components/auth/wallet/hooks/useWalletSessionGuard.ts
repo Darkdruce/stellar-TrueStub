@@ -116,7 +116,7 @@ const useEthereumSessionGuard = (
     );
     if (ethWallets.length === 0) return;
 
-    const provider = (window as any).ethereum;
+    const provider = window.ethereum;
     if (!provider) return;
 
     const handleAccountsChanged = (accounts: string[]) => {

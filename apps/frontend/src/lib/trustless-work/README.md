@@ -49,6 +49,15 @@ tw-blocks/escrows/
 
 The `single-multi-release/` name reflects that those dialogs handle **both** escrow types — not that the folder is a hybrid of the `single-release/` and `multi-release/` init forms.
 
+## 🧱 tw-blocks Providers
+
+The escrow blocks rely on a stack of context providers in
+`src/components/tw-blocks/providers/`. Their responsibilities and the required
+nesting order are documented in
+[`src/components/tw-blocks/providers/README.md`](../../components/tw-blocks/providers/README.md).
+`tw-blocks/providers/TrustlessWork.tsx` re-exports the `TrustlessWorkProvider`
+from this directory, so SDK configuration lives only in `config.ts`.
+
 ## 🚀 Getting Started
 
 ### 1. Environment Setup
@@ -97,21 +106,21 @@ import { TrustlessWorkProvider, TRUSTLESS_WORK_CONSTANTS } from '@/lib/trustless
 import type { EscrowData, Milestone } from '@/lib/trustless-work';
 ```
 
-### Working with Domain Types (Hotel Booking)
+### Working with Domain Types (Ticket Resale)
 
-The library provides simplified domain types (`EscrowData` and `Milestone`) for hotel booking scenarios.
+The library provides simplified domain types (`EscrowData` and `Milestone`) for ticket resale scenarios.
 These are simple TypeScript interfaces you can use directly in your components:
 
 ```tsx
 import { useEscrow } from '@/lib/trustless-work/hooks';
 import type { EscrowData, Milestone } from '@/lib/trustless-work';
 
-function HotelBookingEscrow() {
+function TicketResaleEscrow() {
   const { initialize } = useEscrow();
 
-  const handleCreateBookingEscrow = async (
-    hotelWallet: string,
-    guestWallet: string,
+  const handleCreateResaleEscrow = async (
+    sellerWallet: string,
+    buyerWallet: string,
     platformWallet: string,
     totalAmount: number
   ) => {
@@ -120,20 +129,20 @@ function HotelBookingEscrow() {
       contractId: '', // Will be set by SDK
       amount: totalAmount,
       currency: 'USDC',
-      marker: hotelWallet,      // Hotel wallet (service provider)
-      approver: guestWallet,    // Guest wallet (approver)
+      marker: sellerWallet,     // Seller wallet (service provider)
+      approver: buyerWallet,    // Buyer wallet (approver)
       releaser: platformWallet, // Platform wallet (release signer)
       resolver: platformWallet, // Platform also resolves disputes
       milestones: [
         {
           id: '1',
-          description: 'Guest checks in',
+          description: 'Seller initiates ticket transfer',
           amount: totalAmount * 0.5,
           status: 'pending'
         },
         {
           id: '2',
-          description: 'Guest checks out',
+          description: 'Buyer confirms ticket received',
           amount: totalAmount * 0.5,
           status: 'pending'
         },
@@ -142,10 +151,10 @@ function HotelBookingEscrow() {
 
     // When calling SDK, construct the payload directly
     const result = await initialize({
-      signer: guestWallet,
-      engagementId: `booking-${Date.now()}`,
-      title: 'Hotel Booking Escrow',
-      description: `${escrowData.currency} payment for hotel stay`,
+      signer: buyerWallet,
+      engagementId: `resale-${Date.now()}`,
+      title: 'Ticket Resale Escrow',
+      description: `${escrowData.currency} payment for resale tickets`,
       roles: {
         approver: escrowData.approver,
         serviceProvider: escrowData.marker,
@@ -167,13 +176,13 @@ function HotelBookingEscrow() {
   };
 
   return (
-    <button onClick={() => handleCreateBookingEscrow(
-      'HOTEL_ADDR',
-      'GUEST_ADDR',
+    <button onClick={() => handleCreateResaleEscrow(
+      'SELLER_ADDR',
+      'BUYER_ADDR',
       'PLATFORM_ADDR',
       1000
     )}>
-      Create Booking Escrow
+      Create Resale Escrow
     </button>
   );
 }

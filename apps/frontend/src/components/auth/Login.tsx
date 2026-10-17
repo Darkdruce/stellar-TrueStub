@@ -75,11 +75,21 @@ export default function LoginPage() {
     }
   };
 
+  // Resolve the post-login destination: honour `?next=` when it points
+  // at a /dashboard/* path; fall back to the default dashboard (#176).
+  const searchParams =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search)
+      : null;
+  const nextParam = searchParams?.get("next") ?? "";
+  const postLoginPath =
+    nextParam.startsWith("/dashboard") ? nextParam : "/dashboard/escrow-dashboard";
+
   useEffect(() => {
     if ((address || token) && pathname === "/login") {
-      router.push("/dashboard/escrow-dashboard");
+      router.push(postLoginPath);
     }
-  }, [address, token, router, pathname]);
+  }, [address, token, router, pathname, postLoginPath]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,10 +103,30 @@ export default function LoginPage() {
       // setToken handles cookie sync internally via data.ts
       useGlobalAuthenticationStore.getState().setToken(idToken);
 
+      // Write the session cookie so middleware (#175) can verify auth
+      // server-side before any protected page renders.
+      // HttpOnly is not settable from JS — the token presence is used as a
+      // lightweight gate; server-side API routes still verify the full JWT.
+      document.cookie = `__truestamp_session=${idToken}; path=/; SameSite=Strict`;
+
+      // Extract the `role` custom claim from the JWT payload (middle segment)
+      // and store it in a readable cookie so the middleware can enforce
+      // role-based access (#177) without a Node.js crypto dependency.
+      try {
+        const payload = JSON.parse(atob(idToken.split(".")[1]));
+        const role: string = payload?.role ?? payload?.["https://hasura.io/jwt/claims"]?.["x-hasura-role"] ?? "";
+        if (role) {
+          document.cookie = `__truestamp_role=${role}; path=/; SameSite=Strict`;
+        }
+      } catch {
+        // Non-fatal — role cookie simply won't be set; middleware falls back
+        // to denying role-gated routes for this session.
+      }
+
       toast.success(t("auth.loginSuccess"), {
         description: t("auth.redirectingDashboard"),
       });
-      router.push("/dashboard/escrow-dashboard");
+      router.push(postLoginPath);
     } catch (err: unknown) {
       if (err instanceof FirebaseError && err.code === "auth/multi-factor-auth-required") {
         setMfaResolver(getMultiFactorResolver(auth, err as MultiFactorError));
@@ -134,10 +164,22 @@ export default function LoginPage() {
 
       useGlobalAuthenticationStore.getState().setToken(idToken);
 
+      // Write session + role cookies for middleware (#175, #177)
+      document.cookie = `__truestamp_session=${idToken}; path=/; SameSite=Strict`;
+      try {
+        const payload = JSON.parse(atob(idToken.split(".")[1]));
+        const role: string = payload?.role ?? payload?.["https://hasura.io/jwt/claims"]?.["x-hasura-role"] ?? "";
+        if (role) {
+          document.cookie = `__truestamp_role=${role}; path=/; SameSite=Strict`;
+        }
+      } catch {
+        // non-fatal
+      }
+
       toast.success(t("auth.loginSuccess"), {
         description: t("auth.redirectingDashboard"),
       });
-      router.push("/dashboard/escrow-dashboard");
+      router.push(postLoginPath);
     } catch (err: unknown) {
       if (err instanceof FirebaseError && err.code === "auth/invalid-verification-code") {
         setMfaError(t("auth.twoFactor.invalidCode"));

@@ -74,7 +74,7 @@ export const useAccountSwitcher = ({
       selectedWallet.chain === "ethereum" || selectedWallet.chain === "bsc";
     if (!isEthWallet) return;
 
-    const provider = (window as any).ethereum;
+    const provider = window.ethereum;
     if (!provider) return;
 
     const handleAccountsChanged = (accounts: string[]) => {
@@ -140,7 +140,7 @@ export const useAccountSwitcher = ({
         selectedWallet.walletType === "metamask" ||
         selectedWallet.walletType === "walletconnect"
       ) {
-        const provider = (window as any).ethereum;
+        const provider = window.ethereum;
         if (!provider) {
           throw new Error(
             "No Ethereum provider found. Is MetaMask installed?"
@@ -148,7 +148,7 @@ export const useAccountSwitcher = ({
         }
         // eth_requestAccounts opens the MetaMask account picker if multiple
         // accounts are available, letting the user choose one explicitly.
-        const accounts: string[] = await provider.request({
+        const accounts = await provider.request<string[]>({
           method: "eth_requestAccounts",
         });
         if (!accounts.length) {

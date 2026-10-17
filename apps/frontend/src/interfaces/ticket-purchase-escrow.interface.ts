@@ -1,7 +1,16 @@
 /**
  * Ticket Purchase Escrow Interfaces
- * Types for ticket purchase escrow integration with Trustless Work
+ * Types for ticket purchase escrow integration with Trustless Work.
+ *
+ * Generic Trustless Work shapes (roles, trustline, contract payload) are
+ * defined once in `escrow.interface.ts`; this file only adds the
+ * ticket-purchase-specific wrappers (purchase/event/listing data, form state,
+ * metadata and component props) on top of them.
  */
+
+import type { EscrowRoles, EscrowTrustline } from './escrow.interface';
+
+export type { EscrowRoles } from './escrow.interface';
 
 export type EscrowType = 'single_release' | 'multi_release';
 
@@ -65,15 +74,6 @@ export interface EscrowAsset {
   issuer?: string;
 }
 
-export interface EscrowRoles {
-  approver: string;
-  serviceProvider: string;
-  platformAddress: string;
-  releaseSigner: string;
-  disputeResolver: string;
-  receiver: string;
-}
-
 export interface EscrowMetadata {
   purchaseId: string;
   listingId: string;
@@ -96,10 +96,7 @@ export interface EscrowFormData {
   amount: number | string;
   platformFee: number | string;
   roles: EscrowRoles;
-  trustline: {
-    address: string;
-    decimals: number;
-  };
+  trustline: Pick<EscrowTrustline, 'address' | 'decimals'>;
   milestones: Array<{
     description: string;
     amount?: string;

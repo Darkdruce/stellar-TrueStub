@@ -19,6 +19,7 @@ const compat = new FlatCompat({
  * Rule precedence (last wins):
  *   1. eslint-config-next  — Next.js/React recommended rules
  *   2. eslint-config-prettier — disables all rules that conflict with Prettier
+ *   3. Project overrides      — e.g. no-explicit-any (issue #184)
  *
  * To run:
  *   yarn workspace @truestub/frontend lint
@@ -39,6 +40,20 @@ const eslintConfig = [
   },
   // Next.js + Prettier rules via legacy-compat bridge
   ...compat.extends("next/core-web-vitals", "prettier"),
+  // Keep the explicit-`any` count from growing past the baseline recorded in
+  // docs/TYPESCRIPT_ANY_BASELINE.md. Warn-only until existing usages are
+  // cleaned up; then promote to "error".
+  ...compat.config({
+    overrides: [
+      {
+        files: ["**/*.ts", "**/*.tsx"],
+        plugins: ["@typescript-eslint"],
+        rules: {
+          "@typescript-eslint/no-explicit-any": "warn",
+        },
+      },
+    ],
+  }),
 ];
 
 export default eslintConfig;

@@ -1,0 +1,176 @@
+# .github/workflows/verify-issue-on-close.yml
+#
+# #462 — Auto-reopen bot
+#
+# When a PR that closes an issue is merged, this workflow:
+#   1. Reads the linked issue bodies.
+#   2. Looks for a fenced `verify` code block in each issue body, e.g.:
+#
+#        ```verify
+#        grep -rq "TODO.*getCacheStats" apps/frontend/src/components/performance/CacheStatus.tsx
+#        ```
+#
+#   3. Runs the shell command(s) inside that block against the post-merge
+#      default branch.
+#   4. If any command exits non-zero (meaning the condition that should be
+#      gone is still present, or the file/pattern that should exist is absent),
+#      it re-opens the issue and posts a comment explaining what failed.
+#
+# Permissions required (set in repo Settings → Actions → General):
+#   • "Read and write permissions" for GITHUB_TOKEN, OR
+#   • A PAT/App token with `issues: write` stored as secret REOPEN_BOT_TOKEN.
+#
+# The workflow runs on `pull_request` closed events (not push) so it has
+# access to the PR's "Closes #NNN" / "Fixes #NNN" body references.
+
+name: Verify issue acceptance criteria on PR close
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  verify-and-reopen:
+    # Only run when the PR was actually merged (not just closed/abandoned).
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: read
+      contents: read
+
+    steps:
+      - name: Checkout post-merge main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Extract linked issue numbers from PR body
+        id: linked-issues
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # Matches "closes #123", "fixes #123", "resolves #123" (case-insensitive).
+          ISSUES=$(echo "$PR_BODY" \
+            | grep -oiE '(closes|fixes|resolves)[[:space:]]+#[0-9]+' \
+            | grep -oE '[0-9]+' \
+            | sort -u \
+            | tr '\n' ' ')
+          echo "issue_numbers=${ISSUES}" >> "$GITHUB_OUTPUT"
+          echo "Found linked issues: ${ISSUES}"
+
+      - name: Fetch issue bodies and run verify blocks
+        if: steps.linked-issues.outputs.issue_numbers != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBERS: ${{ steps.linked-issues.outputs.issue_numbers }}
+        run: |
+          set -euo pipefail
+
+          FAILED_ISSUES=""
+
+          for ISSUE_NUM in $ISSUE_NUMBERS; do
+            echo "::group::Issue #${ISSUE_NUM}"
+
+            # Fetch the issue body via the GitHub REST API.
+            ISSUE_BODY=$(gh api "repos/${REPO}/issues/${ISSUE_NUM}" --jq '.body // ""')
+
+            # Extract the contents of every ```verify ... ``` block.
+            # Uses awk to collect lines between ```verify and ``` delimiters.
+            VERIFY_SCRIPT=$(echo "$ISSUE_BODY" | awk '
+              /^```verify/ { in_block=1; next }
+              /^```/ && in_block { in_block=0; next }
+              in_block { print }
+            ')
+
+            if [ -z "$VERIFY_SCRIPT" ]; then
+              echo "No verify: block found in issue #${ISSUE_NUM} — skipping."
+              echo "::endgroup::"
+              continue
+            fi
+
+            echo "Running verify block for issue #${ISSUE_NUM}:"
+            echo "---"
+            echo "$VERIFY_SCRIPT"
+            echo "---"
+
+            # Write the script to a temp file and run it.
+            TMPFILE=$(mktemp /tmp/verify-XXXXXX.sh)
+            echo "$VERIFY_SCRIPT" > "$TMPFILE"
+            chmod +x "$TMPFILE"
+
+            # Capture output and exit code — we do NOT use `set -e` inside
+            # the verify script itself because a non-zero exit is expected
+            # when the bug is NOT fixed.
+            VERIFY_OUTPUT=$(bash "$TMPFILE" 2>&1) && VERIFY_EXIT=0 || VERIFY_EXIT=$?
+            rm -f "$TMPFILE"
+
+            echo "Exit code: ${VERIFY_EXIT}"
+            echo "Output:"
+            echo "$VERIFY_OUTPUT"
+            echo "::endgroup::"
+
+            if [ "$VERIFY_EXIT" -ne 0 ]; then
+              echo "FAIL: verify block for issue #${ISSUE_NUM} exited ${VERIFY_EXIT}"
+              FAILED_ISSUES="${FAILED_ISSUES} ${ISSUE_NUM}:$(echo "$VERIFY_OUTPUT" | head -5 | base64 -w0)"
+            fi
+          done
+
+          # Persist the list of failed issues for the next step.
+          echo "failed_issues=${FAILED_ISSUES}" >> "$GITHUB_ENV"
+
+      - name: Re-open issues whose verify block still fails
+        if: env.failed_issues != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          FAILED_ISSUES: ${{ env.failed_issues }}
+        run: |
+          set -euo pipefail
+
+          for ENTRY in $FAILED_ISSUES; do
+            ISSUE_NUM="${ENTRY%%:*}"
+            OUTPUT_B64="${ENTRY##*:}"
+            OUTPUT=$(echo "$OUTPUT_B64" | base64 -d 2>/dev/null || echo "(could not decode output)")
+
+            echo "Re-opening issue #${ISSUE_NUM}..."
+
+            # Post a comment explaining the failure.
+            gh api \
+              --method POST \
+              "repos/${REPO}/issues/${ISSUE_NUM}/comments" \
+              --field body="$(cat <<COMMENT
+          ## 🤖 Auto-reopen: verify block still fails after PR #${PR_NUMBER} merged
+
+          PR [#${PR_NUMBER} — ${PR_TITLE}](https://github.com/${REPO}/pull/${PR_NUMBER}) \
+          was merged into \`main\` and referenced this issue, but the \`\`\`verify\`\`\` \
+          block in this issue's body still exits non-zero on the post-merge \`main\` branch.
+
+          **Command output (first 5 lines):**
+          \`\`\`
+          ${OUTPUT}
+          \`\`\`
+
+          The issue has been automatically re-opened. Please fix the underlying \
+          acceptance-criteria condition and close it again — or update the \`verify:\` \
+          block if the criteria themselves have changed.
+
+          > Triggered by [verify-issue-on-close.yml](https://github.com/${REPO}/blob/main/.github/workflows/verify-issue-on-close.yml)
+          COMMENT
+          )"
+
+            # Re-open the issue.
+            gh api \
+              --method PATCH \
+              "repos/${REPO}/issues/${ISSUE_NUM}" \
+              --field state=open \
+              --field state_reason=reopened
+
+            echo "Issue #${ISSUE_NUM} re-opened."
+          done

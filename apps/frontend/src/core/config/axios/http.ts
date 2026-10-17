@@ -10,7 +10,7 @@
  *   NEXT_PUBLIC_API_KEY                — Trustless Work bearer token
  *
  * URL resolution matches the pattern used in
- *   src/components/tw-blocks/providers/TrustlessWork.tsx:
+ *   src/lib/trustless-work/config.ts (used by the TrustlessWork providers):
  *   use the dev URL when NODE_ENV === "development", production URL otherwise.
  *
  * Fix for issue #124: no hardcoded URLs or literal placeholder tokens.

@@ -27,6 +27,26 @@ Add here some information
 
 - **Video**: [Link to Loom video](https://loom.com)
 
+## ✅ Verify Before Closing
+
+> **Required** — see [CONTRIBUTING.md § Verify before closing](../CONTRIBUTING.md) for the full rationale.
+
+Before submitting this PR for merge, confirm that the acceptance criteria of every
+linked issue still pass against **this branch** (not just against your diff):
+
+- [ ] I re-ran the specific grep / test / repro step from each linked issue's
+      "Acceptance Criteria" against the current branch and it passes.
+- [ ] If any linked issue contains a `verify:` fenced block, I ran that exact
+      command locally and it produced the expected result.
+- [ ] If I could not run a verification step (missing secrets, infra, etc.),
+      I have noted this below and asked a maintainer to verify.
+
+**Verification notes** *(leave blank if all checks passed without caveats)*:
+
+<!-- Paste the command you ran and its output here, or explain why a step was skipped. -->
+
+---
+
 ## 📂 Related Issue
 
 <!-- Link the related issue so it automatically closes when this pull request is merged. -->

@@ -1,74 +1,93 @@
-import FavoriteButton from '@/components/ticket-listing-mobile/mobile/FavoriteButton';
+'use client';
 
-const STUB_FAVORITES = [
-  {
-    id: '1',
-    name: 'La sabana sur',
-    address: '329 Calle santos, paseo colón, San José',
-    price: 4058,
-    bedrooms: 2,
-    bathrooms: 1,
-    petFriendly: true,
-  },
-  {
-    id: '2',
-    name: 'Los yoses',
-    address: '329 Calle santos, paseo colón, San José',
-    price: 4000,
-    bedrooms: 2,
-    bathrooms: 1,
-    petFriendly: true,
-  },
-];
+import Link from 'next/link';
+import { format } from 'date-fns';
+import { CalendarDays, MapPin, Ticket, TrendingDown, TrendingUp } from 'lucide-react';
+import FavoriteButton from '@/components/ticket-listing-mobile/FavoriteButton';
+import { useFavoritesStore } from '@/core/store/data/favorites.store';
+import { getPriceChange } from '@/lib/watchlist';
 
 export default function FavoritesPage() {
+  const { savedListings, savedPrices, removeSaved } = useFavoritesStore();
+
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Favorites</h1>
+        <h1 className="text-2xl font-bold">Saved listings</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Apartments you have saved
+          Ticket listings you are watching — we notify you when the price changes or one is about to sell
         </p>
       </div>
 
-      {STUB_FAVORITES.length === 0 ? (
+      {savedListings.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
-          <p className="text-lg font-medium">No favorites yet</p>
+          <p className="text-lg font-medium">No saved listings yet</p>
           <p className="text-sm mt-1">
-            Save listings by clicking the heart icon on any listing.
+            Save a ticket listing by clicking the heart icon to keep an eye on
+            its price.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {STUB_FAVORITES.map((apartment) => (
+          {savedListings.map((listing) => (
             <div
-              key={apartment.id}
+              key={listing.id}
               className="border rounded-xl p-4 bg-card space-y-3"
             >
               <div className="h-32 bg-muted rounded-lg flex items-center justify-center">
-                <span className="text-xs text-muted-foreground">
-                  Image placeholder
-                </span>
+                <Ticket className="h-8 w-8 text-muted-foreground" />
               </div>
 
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="font-semibold">{apartment.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {apartment.address}
+                <div className="min-w-0">
+                  <Link
+                    href={`/rent/${listing.id}`}
+                    className="font-semibold hover:underline"
+                  >
+                    {listing.name}
+                  </Link>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    {listing.address}
+                  </p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3 shrink-0" />
+                    {format(new Date(listing.eventDate), 'MMM d, yyyy · h:mm a')}
                   </p>
                   <p className="text-sm text-primary font-semibold mt-1">
-                    ${apartment.price.toLocaleString()}/mo
+                    {listing.price.toLocaleString()} USDC
                   </p>
+                  {(() => {
+                    const change = getPriceChange(savedPrices[listing.id], listing.price);
+                    if (!change) return null;
+                    const Icon = change.direction === 'down' ? TrendingDown : TrendingUp;
+                    return (
+                      <p
+                        className={`text-xs font-medium flex items-center gap-1 ${
+                          change.direction === 'down' ? 'text-green-600' : 'text-red-600'
+                        }`}
+                      >
+                        <Icon className="h-3 w-3" />
+                        Price {change.direction === 'down' ? 'dropped' : 'increased'} from{' '}
+                        {change.previous.toLocaleString()} USDC ({change.percent > 0 ? '+' : ''}
+                        {change.percent}%)
+                      </p>
+                    );
+                  })()}
                   <p className="text-xs text-muted-foreground">
-                    {apartment.bedrooms}bd ·{' '}
-                    {apartment.petFriendly ? 'pet friendly' : 'no pets'} ·{' '}
-                    {apartment.bathrooms}ba
+                    Face value {listing.faceValue.toLocaleString()} USDC ·{' '}
+                    {listing.section} · {listing.seat}
                   </p>
+                  {!listing.is_available && (
+                    <p className="text-xs text-muted-foreground">No longer available</p>
+                  )}
                 </div>
 
-                {/* TODO: wire isLiked state from user favorites store */}
-                <FavoriteButton isLiked={true} showCount={false} />
+                <FavoriteButton
+                  isLiked
+                  showCount={false}
+                  onLike={() => removeSaved(listing.id)}
+                />
               </div>
             </div>
           ))}

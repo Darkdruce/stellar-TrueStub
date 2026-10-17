@@ -24,7 +24,7 @@ export function MyListingsTable() {
   const [search, setSearch] = useState("");
   const offset = page * ITEMS_PER_PAGE;
 
-  const { data } = useTicketListings({
+  const { data, loading, error } = useTicketListings({
     limit: ITEMS_PER_PAGE,
     offset,
     search,
@@ -32,10 +32,6 @@ export function MyListingsTable() {
 
   const listings = data.ticket_listings;
   const total = data.ticket_listings_aggregate.aggregate.count;
-
-  const handleDeleteConfirmed = (id: number) => {
-    console.log("(stub) Listing deleted:", id);
-  };
 
   return (
     <div className="space-y-4">
@@ -83,10 +79,14 @@ export function MyListingsTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {listings.length === 0 ? (
+            {loading || error || listings.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
-                  No listings found.
+                  {loading
+                    ? "Loading listings..."
+                    : error
+                      ? "Failed to load listings."
+                      : "No listings found."}
                 </TableCell>
               </TableRow>
             ) : (
@@ -118,10 +118,7 @@ export function MyListingsTable() {
                     ${listing.price.toLocaleString()}
                   </TableCell>
                   <TableCell>
-                    <ListingActionsMenu
-                      listingId={Number(listing.id)}
-                      onDeleteConfirmed={handleDeleteConfirmed}
-                    />
+                    <ListingActionsMenu listingId={Number(listing.id)} />
                   </TableCell>
                 </TableRow>
               ))

@@ -1,15 +1,21 @@
 "use client";
 
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { StarRating } from "./StarRating";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { User, MessageSquare } from "lucide-react";
-import type { Review } from "@/graphql/types";
+import type { Review } from "@/types/ratings";
 
 interface ReviewsListProps {
   reviews?: Review[];
   title?: string;
   emptyMessage?: string;
+  pageSize?: number;
 }
+
+const DEFAULT_PAGE_SIZE = 5;
 
 const STUB_REVIEWS: Review[] = [
   {
@@ -49,27 +55,32 @@ const STUB_REVIEWS: Review[] = [
 
 export function ReviewsList({
   reviews = STUB_REVIEWS,
-  title = "Recent Reviews & Feedback",
-  emptyMessage = "No reviews yet.",
+  title,
+  emptyMessage,
+  pageSize = DEFAULT_PAGE_SIZE,
 }: ReviewsListProps) {
+  const { t } = useTranslation();
   const items = reviews.length > 0 ? reviews : STUB_REVIEWS;
+  const [visibleCount, setVisibleCount] = useState(pageSize);
+  const visibleItems = items.slice(0, visibleCount);
+  const hasMore = visibleCount < items.length;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          {title} ({items.length})
+          {title || t("ratings.recentReviews")} ({items.length})
         </h4>
       </div>
 
       {items.length === 0 ? (
         <div className="text-center py-6 text-sm text-muted-foreground bg-muted/20 rounded-xl border border-dashed">
           <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-40" />
-          {emptyMessage}
+          {emptyMessage || t("ratings.noReviews")}
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map((review) => (
+          {visibleItems.map((review) => (
             <div
               key={review.id}
               className="p-4 rounded-xl border bg-card/60 hover:bg-card transition-colors space-y-2"
@@ -81,7 +92,7 @@ export function ReviewsList({
                   </div>
                   <div>
                     <span className="font-medium text-sm text-foreground">
-                      {review.reviewer_name || "Verified Trader"}
+                      {review.reviewer_name || t("ratings.verifiedTrader")}
                     </span>
                     <Badge variant="secondary" className="ml-2 text-[10px] capitalize font-normal">
                       {review.role}
@@ -107,6 +118,17 @@ export function ReviewsList({
               )}
             </div>
           ))}
+          {hasMore && (
+            <div className="flex justify-center pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVisibleCount((count) => count + pageSize)}
+              >
+                {t("ratings.loadMore", { count: items.length - visibleCount })}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

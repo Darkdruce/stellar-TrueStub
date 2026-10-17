@@ -36,62 +36,6 @@ table.
 
 Migrations live in `src/db/migrations/` and are applied in filename order.
 
-### Coordinating migration numbers across concurrent branches
-
-Migration files are numbered sequentially (`001_…`, `002_…`, `003_…`). Because
-the number is chosen by hand at authoring time, two branches opened around the
-same time can independently pick the same "next" number — this is how the
-duplicate `002` migration incident happened. The pre-commit hook and the CI
-`--check-order` check catch the collision, but only after the fact, so the
-process below exists to make collisions rare in the first place. With several
-PRs in flight at once, assume someone else is picking a number right now.
-
-#### Before opening a PR
-
-1. **Refresh `main` and read the latest migration number.** Immediately before
-   opening the PR (not when you started the branch):
-
-   ```bash
-   git fetch origin main
-   git ls-tree --name-only origin/main src/db/migrations/ | sort | tail -n 5
-   ```
-
-   The highest number in that listing is the last one merged.
-2. **Search open PRs for in-flight migrations.** A number that is not yet on
-   `main` is still taken if another open PR claims it:
-
-   ```bash
-   gh pr list --state open --json number,title,files \
-     --jq '.[] | select(.files[].path | startswith("apps/backend/src/db/migrations/"))'
-   ```
-
-   (Or browse the open PRs and check their changed files.) Collect every
-   migration number claimed by an open PR.
-3. **Pick the next free number** — one greater than the highest number found in
-   steps 1 and 2, not merely one greater than what is on `main`. Zero-pad to
-   three digits (`004_…`) so filename ordering stays correct.
-4. **State the chosen number in the PR description**, e.g. "Adds migration
-   `004_add_refund_status`; `003` is the latest on `main` and no open PR claims
-   `004`." This makes the claim visible to the next contributor and lets a
-   reviewer spot a collision before CI does.
-
-#### If a collision is discovered
-
-Do not renumber by editing the file in place on top of a stale base. Instead:
-
-1. Rebase the branch onto the latest `main` (`git fetch origin main && git
-   rebase origin/main`).
-2. Rename the migration file to the next free number, using `git mv` so the
-   rename is recorded, and update any references to the old filename (tests,
-   docs, seed scripts).
-3. Re-run the migration locally to confirm it still applies cleanly in the new
-   position, then push and note the renumbering in the PR description.
-
-The pre-commit hook rejects duplicate numbers locally, and CI runs the
-migrations with `--check-order` to reject out-of-order or duplicate files. Treat
-both as backstops: they will stop a bad merge, but they cannot stop two
-contributors from wasting a review cycle on the same number.
-
 ### SafeTrust-era `hotels` rows (migration `002_rename_hotels_to_events.sql`)
 
 Databases carried over from SafeTrust may contain a `public.hotels` table. The
@@ -163,3 +107,42 @@ WHERE price IS NULL
 
 If no environment reports legacy rows, document that finding here and no
 backfill is required.
+
+## Trustless Work escrow statuses
+
+`POST /webhooks/escrow-status` receives escrow status updates from Trustless
+Work. The handler in `src/routes/webhooks.ts` maps each incoming status through
+`STATUS_MAP` to the internal status used by this backend.
+
+### Canonical status list
+
+The keys of `STATUS_MAP` must cover **every** status value Trustless Work can
+send, as documented in Trustless Work's API reference. The canonical list is:
+
+| Trustless Work status | Mapped internal status |
+| --- | --- |
+| `created` | `pending` |
+| `funded` | `funded` |
+| `in_progress` | `in_progress` |
+| `completed` | `completed` |
+| `released` | `released` |
+| `disputed` | `disputed` |
+| `resolved` | `resolved` |
+| `cancelled` | `cancelled` |
+| `refunded` | `refunded` |
+
+### Completeness contract
+
+- Every documented Trustless Work status **must** have an entry in
+  `STATUS_MAP`. A status that is documented but missing from the map is a bug:
+  a legitimate webhook delivery for that status would be rejected.
+- A status that is **not** in `STATUS_MAP` is treated as unknown and the
+  request is rejected with a `400` response. This is intentional — the backend
+  refuses to guess an internal status for a value it does not recognise.
+- Because a `400` here almost always means the map is out of date rather than
+  the caller sending a malformed request, a dedicated alert fires for `400`
+  responses on this route (separate from generic error monitoring). If that
+  alert triggers, the fix is to add the new status to `STATUS_MAP` and to the
+  table above.
+- When Trustless Work introduces a new status, update `STATUS_MAP`, the table
+  above, and the test that asserts the map covers the documented statuses.
