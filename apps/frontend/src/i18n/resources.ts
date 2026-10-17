@@ -432,6 +432,11 @@ const resources = {
         withdrawing: "Retirando...",
         withdraw: "Retirar disputa",
         noActions: "No hay acciones de disputa disponibles para tu rol en este contrato.",
+        resolved: "Resuelta",
+        withdrawn: "Retirada",
+        escalated: "Escalada",
+        open: "Abierta",
+        inProgress: "Arbitraje en curso",
       },
       disputes: {
         raise: "Raise Dispute / Request Arbitration",
@@ -963,6 +968,11 @@ const resources = {
         withdrawing: "Withdrawing...",
         withdraw: "Withdraw Dispute",
         noActions: "No dispute actions are available for your role on this contract.",
+        resolved: "Resolved",
+        withdrawn: "Withdrawn",
+        escalated: "Escalated",
+        open: "Open",
+        inProgress: "Arbitration In Progress",
       },
       disputes: {
         raise: "Abrir disputa / solicitar arbitraje",
