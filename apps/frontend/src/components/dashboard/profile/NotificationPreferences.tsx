@@ -19,23 +19,23 @@ const PREFERENCE_OPTIONS: {
 }[] = [
   {
     key: "offers",
-    label: t("notificationPreferences.offers"),
-    description: t("notificationPreferences.offersDescription"),
+    label: "notificationPreferences.offers",
+    description: "notificationPreferences.offersDescription",
   },
   {
     key: "escrowUpdates",
-    label: t("notificationPreferences.escrowUpdates"),
-    description: t("notificationPreferences.escrowUpdatesDescription"),
+    label: "notificationPreferences.escrowUpdates",
+    description: "notificationPreferences.escrowUpdatesDescription",
   },
   {
     key: "savedListingPriceDrops",
-    label: t("notificationPreferences.savedListingPriceDrops"),
-    description: t("notificationPreferences.savedListingPriceDropsDescription"),
+    label: "notificationPreferences.savedListingPriceDrops",
+    description: "notificationPreferences.savedListingPriceDropsDescription",
   },
   {
     key: "eventReminders",
-    label: t("notificationPreferences.eventReminders"),
-    description: t("notificationPreferences.eventRemindersDescription"),
+    label: "notificationPreferences.eventReminders",
+    description: "notificationPreferences.eventRemindersDescription",
   },
 ];
 
@@ -173,9 +173,9 @@ export function NotificationPreferences() {
             />
             <div>
               <Label htmlFor={`notify-${key}`} className="font-medium">
-                {label}
+                {t(label)}
               </Label>
-              <p className="text-sm text-muted-foreground">{description}</p>
+              <p className="text-sm text-muted-foreground">{t(description)}</p>
             </div>
           </div>
         ))}
