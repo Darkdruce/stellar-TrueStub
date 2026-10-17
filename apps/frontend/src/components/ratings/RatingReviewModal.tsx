@@ -159,7 +159,7 @@ export function RatingReviewModal({
                 onClick={() => setOpen(false)}
                 disabled={isSubmitting}
               >
-                Cancel
+                {t("ratings.cancel")}
               </Button>
               <Button
                 type="submit"
