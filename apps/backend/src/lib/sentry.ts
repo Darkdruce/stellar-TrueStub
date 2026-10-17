@@ -76,4 +76,68 @@ export async function alertCriticalFailure(
   }
 }
 
+/**
+ * Dedicated alert for notification-delivery failure paths (#408).
+ *
+ * Distinct from the general Sentry error stream: it is tagged as a
+ * notification-delivery alert, logged at `error` level with a stable
+ * `[NOTIFICATION_DELIVERY_FAILURE]` prefix, and pushed to the operational
+ * alert webhook (Slack/PagerDuty/etc.) when `CRITICAL_ALERT_WEBHOOK_URL` is
+ * set. Never throws — alerting must not mask the original failure.
+ */
+export async function alertNotificationDeliveryFailure(
+  notificationType: string,
+  reason: "transient_exhausted" | "permanent",
+  message: string,
+  context: Record<string, unknown> = {},
+): Promise<void> {
+  const payload = {
+    notificationType,
+    reason,
+    message,
+    context,
+    environment: env.NODE_ENV,
+    timestamp: new Date().toISOString(),
+  };
+
+  logger.error(
+    `[NOTIFICATION_DELIVERY_FAILURE] ${notificationType} (${reason}): ${message}`,
+    payload,
+  );
+
+  Sentry.captureMessage(
+    `[NOTIFICATION_DELIVERY_FAILURE] ${notificationType} (${reason}): ${message}`,
+    {
+      level: "error",
+      tags: {
+        alert: "notification_delivery_failure",
+        notificationType,
+        reason,
+      },
+      extra: context,
+    },
+  );
+
+  const webhookUrl = env.CRITICAL_ALERT_WEBHOOK_URL;
+  if (!webhookUrl) {
+    return;
+  }
+
+  try {
+    await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: `:warning: NOTIFICATION DELIVERY FAILURE ${notificationType} (${reason}): ${message}`,
+        ...payload,
+      }),
+    });
+  } catch (err) {
+    logger.error(
+      "[NOTIFICATION_DELIVERY_FAILURE] failed to deliver alert",
+      { err, payload },
+    );
+  }
+}
+
 export { Sentry };

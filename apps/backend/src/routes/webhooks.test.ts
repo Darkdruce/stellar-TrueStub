@@ -28,7 +28,7 @@ import { env } from "../config/env";
 import { captureRawBody } from "../middleware/rawBody";
 import { HasuraService } from "../services/hasura.service";
 import { NotificationService } from "../services/notification.service";
-import { webhookRouter } from "./webhooks";
+import { webhookRouter, STATUS_MAP } from "./webhooks";
 import { Sentry } from "../lib/sentry";
 
 const updateEscrowStatus = HasuraService.updateEscrowStatus as jest.Mock;
@@ -57,6 +57,48 @@ const payload = JSON.stringify({
   contractId: "contract-123",
   engagementId: "ENG-001",
   status: "completed",
+});
+
+// Canonical list of every escrow status Trustless Work documents as deliverable
+// via the escrow-status webhook. Sourced from Trustless Work's API docs
+// (escrow lifecycle statuses plus the aliases they emit in webhook payloads).
+// If Trustless Work adds a status, add it here and to STATUS_MAP in webhooks.ts;
+// this test fails otherwise so a legitimate delivery can never be silently
+// rejected with a 400 (and retried forever).
+const DOCUMENTED_TRUSTLESS_WORK_STATUSES = [
+  // Canonical escrow lifecycle statuses.
+  "created",
+  "funded",
+  "completed",
+  "disputed",
+  "released",
+  "cancelled",
+  "refunded",
+  // Aliases Trustless Work emits in webhook payloads.
+  "ACTIVE",
+  "PENDING",
+  "COMPLETE",
+  "CANCELLED",
+  "DISPUTED",
+  "RELEASED",
+  "REFUNDED",
+] as const;
+
+describe("STATUS_MAP coverage", () => {
+  it("maps every documented Trustless Work escrow status", () => {
+    const missing = DOCUMENTED_TRUSTLESS_WORK_STATUSES.filter(
+      (status) => !(status in STATUS_MAP)
+    );
+
+    expect(missing).toEqual([]);
+  });
+
+  it("maps every documented status to a non-empty string", () => {
+    for (const status of DOCUMENTED_TRUSTLESS_WORK_STATUSES) {
+      expect(typeof STATUS_MAP[status]).toBe("string");
+      expect(STATUS_MAP[status].length).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe("POST /webhooks/escrow-status", () => {

@@ -107,3 +107,42 @@ WHERE price IS NULL
 
 If no environment reports legacy rows, document that finding here and no
 backfill is required.
+
+## Trustless Work escrow statuses
+
+`POST /webhooks/escrow-status` receives escrow status updates from Trustless
+Work. The handler in `src/routes/webhooks.ts` maps each incoming status through
+`STATUS_MAP` to the internal status used by this backend.
+
+### Canonical status list
+
+The keys of `STATUS_MAP` must cover **every** status value Trustless Work can
+send, as documented in Trustless Work's API reference. The canonical list is:
+
+| Trustless Work status | Mapped internal status |
+| --- | --- |
+| `created` | `pending` |
+| `funded` | `funded` |
+| `in_progress` | `in_progress` |
+| `completed` | `completed` |
+| `released` | `released` |
+| `disputed` | `disputed` |
+| `resolved` | `resolved` |
+| `cancelled` | `cancelled` |
+| `refunded` | `refunded` |
+
+### Completeness contract
+
+- Every documented Trustless Work status **must** have an entry in
+  `STATUS_MAP`. A status that is documented but missing from the map is a bug:
+  a legitimate webhook delivery for that status would be rejected.
+- A status that is **not** in `STATUS_MAP` is treated as unknown and the
+  request is rejected with a `400` response. This is intentional — the backend
+  refuses to guess an internal status for a value it does not recognise.
+- Because a `400` here almost always means the map is out of date rather than
+  the caller sending a malformed request, a dedicated alert fires for `400`
+  responses on this route (separate from generic error monitoring). If that
+  alert triggers, the fix is to add the new status to `STATUS_MAP` and to the
+  table above.
+- When Trustless Work introduces a new status, update `STATUS_MAP`, the table
+  above, and the test that asserts the map covers the documented statuses.

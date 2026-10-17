@@ -11,6 +11,20 @@ export async function createListingAlert(
   userId: string,
   input: CreateListingAlertInput
 ): Promise<ListingAlert> {
+  // Guard against duplicate watchlist entries: a user may only watch a given
+  // listing once. If an entry already exists for this (userId, listingId)
+  // pair, return it as a no-op success instead of inserting a duplicate.
+  const existing = await db
+    .collection(COLLECTION)
+    .where('userId', '==', userId)
+    .where('listingId', '==', input.listingId)
+    .limit(1)
+    .get();
+
+  if (!existing.empty) {
+    return existing.docs[0].data() as ListingAlert;
+  }
+
   const now = new Date().toISOString();
   const ref = db.collection(COLLECTION).doc();
 

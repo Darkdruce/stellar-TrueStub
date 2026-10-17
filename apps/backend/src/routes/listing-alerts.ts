@@ -72,6 +72,10 @@ watchlistRouter.post("/", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid watchlist payload", details: parsed.error.flatten() });
   }
+  const existing = listingAlertService
+    .listWatched(userId)
+    .find((entry) => entry.listingId === parsed.data.listingId);
+  if (existing) return res.status(200).json(existing);
   return res.status(201).json(listingAlertService.watch({ ...parsed.data, userId }));
 });
 
