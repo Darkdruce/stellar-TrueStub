@@ -87,6 +87,31 @@ are a good place to start.
 The full walkthrough (forking, branch naming, PR expectations) is in
 [`docs/CONTRIBUTORS_GUIDELINE.md`](docs/CONTRIBUTORS_GUIDELINE.md).
 
+## ✅ Verify before closing an issue
+
+This project has a recurring pattern: issues get closed by a PR that addresses part
+of the problem, or fixes it in a way that gets reverted by a later conflicting PR,
+without the closer re-verifying the original acceptance criteria against the current
+branch.
+
+**Before marking an issue as resolved (merging the PR or manually closing), run the
+specific grep / test / repro step from the issue's "Acceptance Criteria" against your
+current branch — not just against your PR's own diff.**
+
+If the issue body contains a `verify:` fenced block, run it locally:
+
+```bash
+# Example from an issue body:
+# ```verify
+# grep -r "TODO.*getCacheStats" apps/frontend/src/components/performance/CacheStatus.tsx
+# ```
+# A zero-match result (exit 1 / no output) means the fix is in place.
+```
+
+The PR template includes a corresponding checklist item. Do not skip it.
+If you cannot run the verification step (e.g., it requires secrets), note that
+explicitly in the PR and ask a maintainer to verify on their end.
+
 ## Tracking mocked / unwired flows
 
 If you add a `// TODO: Replace with actual API call` marker (or any other
