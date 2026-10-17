@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +60,7 @@ export function RaiseDisputeModal({
   onDisputeRaised,
   triggerButton,
 }: RaiseDisputeModalProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<string>("");
   const [description, setDescription] = useState("");
@@ -71,7 +73,7 @@ export function RaiseDisputeModal({
   const handleRaiseDispute = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reason || !description.trim()) {
-      toast.error("Please select a reason and describe the issue.");
+      toast.error(t("disputes.validation"));
       return;
     }
 
@@ -99,7 +101,7 @@ export function RaiseDisputeModal({
         });
       }
 
-      toast.success("Dispute initiated successfully. Escrow funds locked in arbitration.");
+      toast.success(t("disputes.success"));
       setIsSuccess(true);
 
       setTimeout(() => {
@@ -108,7 +110,7 @@ export function RaiseDisputeModal({
       }, 2000);
     } catch (err) {
       console.error("Failed to raise dispute:", err);
-      toast.error("Failed to initiate dispute. Please check your wallet connection.");
+      toast.error(t("disputes.failure"));
     } finally {
       setIsSubmitting(false);
     }
@@ -124,7 +126,7 @@ export function RaiseDisputeModal({
             className="gap-2 bg-red-600 hover:bg-red-700 text-white shadow-sm"
           >
             <AlertTriangle className="h-4 w-4" />
-            Raise Dispute / Request Arbitration
+            {t("disputes.raise")}
           </Button>
         )}
       </DialogTrigger>
@@ -133,7 +135,7 @@ export function RaiseDisputeModal({
         {isSuccess ? (
           <div className="py-8 flex flex-col items-center justify-center text-center space-y-3">
             <CheckCircle2 className="h-12 w-12 text-emerald-500 animate-in zoom-in-50 duration-300" />
-            <h3 className="text-xl font-semibold text-foreground">Dispute Submitted</h3>
+            <h3 className="text-xl font-semibold text-foreground">{t("disputes.submitted")}</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
               Escrow <strong>{engagementId || contractId}</strong> is now marked as <strong>DISPUTED</strong>.
               All funds remain locked while the on-chain arbitrator reviews the evidence.
@@ -144,10 +146,10 @@ export function RaiseDisputeModal({
             <DialogHeader className="space-y-2">
               <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
                 <ShieldAlert className="h-6 w-6" />
-                <DialogTitle className="text-xl">Raise Escrow Dispute</DialogTitle>
+                <DialogTitle className="text-xl">{t("disputes.title")}</DialogTitle>
               </div>
               <DialogDescription>
-                Initiate on-chain arbitration for escrow{" "}
+                {t("disputes.description", { id: engagementId || contractId })}{" "}
                 <span className="font-mono text-xs">{contractId || engagementId}</span>.
               </DialogDescription>
             </DialogHeader>
@@ -156,22 +158,22 @@ export function RaiseDisputeModal({
               <div className="rounded-lg border border-amber-200 bg-amber-50/80 dark:border-amber-900/40 dark:bg-amber-950/20 p-3 text-xs text-amber-900 dark:text-amber-300 space-y-1">
                 <p className="font-semibold flex items-center gap-1.5">
                   <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                  What happens when you raise a dispute:
+                  {t("disputes.consequences")}
                 </p>
                 <ul className="list-disc list-inside space-y-0.5 text-amber-800 dark:text-amber-400 pl-1">
-                  <li>Automatic fund releases are immediately frozen.</li>
-                  <li>Both parties submit proof & statements to the arbitrator.</li>
-                  <li>The arbitrator resolves the contract according to Stellar smart contract rules.</li>
+                  <li>{t("disputes.consequenceOne")}</li>
+                  <li>{t("disputes.consequenceTwo")}</li>
+                  <li>{t("disputes.consequenceThree")}</li>
                 </ul>
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="dispute-reason">
-                  Dispute Reason <span className="text-destructive">*</span>
+                  {t("disputes.reason")} <span className="text-destructive">*</span>
                 </Label>
                 <Select value={reason} onValueChange={setReason}>
                   <SelectTrigger id="dispute-reason" className="w-full">
-                    <SelectValue placeholder="Select primary reason..." />
+                    <SelectValue placeholder="{t("disputes.selectReason")}" />
                   </SelectTrigger>
                   <SelectContent>
                     {DISPUTE_REASONS.map((r) => (
@@ -185,13 +187,13 @@ export function RaiseDisputeModal({
 
               <div className="space-y-1.5">
                 <Label htmlFor="dispute-desc">
-                  Detailed Statement & Description <span className="text-destructive">*</span>
+                  {t("disputes.detailedStatement")} <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
                   id="dispute-desc"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Explain clearly what went wrong, including timestamps, communication history, and proof..."
+                  placeholder="{t("disputes.statementPlaceholder")}"
                   className="min-h-[100px] resize-y"
                   required
                 />
@@ -200,14 +202,14 @@ export function RaiseDisputeModal({
               <div className="space-y-1.5">
                 <Label htmlFor="evidence-url" className="flex items-center gap-1.5">
                   <FileText className="h-3.5 w-3.5" />
-                  Evidence Link / Screenshot URL <span className="text-xs text-muted-foreground">(Optional)</span>
+                  {t("disputes.evidence")} <span className="text-xs text-muted-foreground">(Optional)</span>
                 </Label>
                 <Input
                   id="evidence-url"
                   type="url"
                   value={evidenceUrl}
                   onChange={(e) => setEvidenceUrl(e.target.value)}
-                  placeholder="https://ipfs.io/... or image URL"
+                  placeholder="{t("disputes.evidencePlaceholder")}"
                 />
               </div>
             </div>
@@ -230,10 +232,10 @@ export function RaiseDisputeModal({
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing on-chain...
+                    {t("disputes.signing")}
                   </>
                 ) : (
-                  "Confirm & Freeze Escrow"
+                  t("disputes.confirm")
                 )}
               </Button>
             </DialogFooter>
