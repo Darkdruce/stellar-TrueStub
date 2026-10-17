@@ -173,7 +173,7 @@ export function RaiseDisputeModal({
                 </Label>
                 <Select value={reason} onValueChange={setReason}>
                   <SelectTrigger id="dispute-reason" className="w-full">
-                    <SelectValue placeholder="{t("disputes.selectReason")}" />
+                    <SelectValue placeholder={t("disputes.selectReason")} />
                   </SelectTrigger>
                   <SelectContent>
                     {DISPUTE_REASONS.map((r) => (
@@ -193,7 +193,7 @@ export function RaiseDisputeModal({
                   id="dispute-desc"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="{t("disputes.statementPlaceholder")}"
+                  placeholder={t("disputes.statementPlaceholder")}
                   className="min-h-[100px] resize-y"
                   required
                 />
@@ -202,14 +202,14 @@ export function RaiseDisputeModal({
               <div className="space-y-1.5">
                 <Label htmlFor="evidence-url" className="flex items-center gap-1.5">
                   <FileText className="h-3.5 w-3.5" />
-                  {t("disputes.evidence")} <span className="text-xs text-muted-foreground">(Optional)</span>
+                  {t("disputes.evidence")} <span className="text-xs text-muted-foreground">{t("disputes.optional")}</span>
                 </Label>
                 <Input
                   id="evidence-url"
                   type="url"
                   value={evidenceUrl}
                   onChange={(e) => setEvidenceUrl(e.target.value)}
-                  placeholder="{t("disputes.evidencePlaceholder")}"
+                  placeholder={t("disputes.evidencePlaceholder")}
                 />
               </div>
             </div>
