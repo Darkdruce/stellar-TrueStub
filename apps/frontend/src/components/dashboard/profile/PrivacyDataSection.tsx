@@ -169,11 +169,19 @@ export function PrivacyDataSection() {
         </div>
       </div>
 
-      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+      <Dialog
+        open={isDeleteOpen}
+        onOpenChange={(open) => {
+          // Do not let the dialog disappear while the irreversible request is in flight.
+          if (!open && isDeleting) return;
+          setIsDeleteOpen(open);
+          if (!open) setConfirmationText("");
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("privacy.deleteTitle")}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle>Delete account</DialogTitle>
+            <DialogDescription id="delete-confirmation-help">
               {isCheckingEscrows
                 ? t("privacy.checking")
                 : hasBlockingEscrows
@@ -191,6 +199,8 @@ export function PrivacyDataSection() {
                 onChange={(e) => setConfirmationText(e.target.value)}
                 placeholder={DELETE_CONFIRMATION_PHRASE}
                 autoComplete="off"
+                autoFocus
+                aria-describedby="delete-confirmation-help"
               />
             </div>
           )}
