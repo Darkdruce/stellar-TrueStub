@@ -179,7 +179,7 @@ export function PrivacyDataSection() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete account</DialogTitle>
-            <DialogDescription>
+            <DialogDescription id="delete-confirmation-help">
               {isCheckingEscrows
                 ? "Checking for active escrows…"
                 : hasBlockingEscrows
