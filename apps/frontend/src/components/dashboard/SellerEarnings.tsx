@@ -84,8 +84,8 @@ export function SellerEarnings({ escrows }: { escrows: PayoutEscrow[] }) {
           <thead className="text-left text-muted-foreground">
             <tr>
               <th className="py-1">{t("earnings.periodStarting")}</th>
-              <th className="py-1">Sales</th>
-              <th className="py-1 text-right">Earned</th>
+              <th className="py-1">{t("earnings.sales")}</th>
+              <th className="py-1 text-right">{t("earnings.earned")}</th>
             </tr>
           </thead>
           <tbody>
