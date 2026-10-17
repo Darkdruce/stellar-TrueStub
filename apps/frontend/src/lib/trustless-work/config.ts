@@ -18,6 +18,38 @@ export const TRUSTLESS_WORK_API_URLS = {
 } as const;
 
 /**
+ * Resolve the Stellar network used by the frontend.
+ *
+ * This is the single source of truth for the frontend's network value and is
+ * read consistently from `NEXT_PUBLIC_TRUSTLESS_NETWORK`. It defaults to
+ * `testnet` in development and `mainnet` otherwise, matching the historical
+ * behavior of {@link getTrustlessWorkConfig}.
+ *
+ * The resolved value is exported so that startup/deploy-time checks can
+ * cross-validate it against the backend's `STELLAR_NETWORK` (see
+ * `resolveFrontendNetwork` / `assertNetworkMatchesBackend` below).
+ *
+ * @returns {'testnet' | 'mainnet'} The resolved frontend network
+ */
+export function resolveFrontendNetwork(): 'testnet' | 'mainnet' {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const configured = process.env.NEXT_PUBLIC_TRUSTLESS_NETWORK;
+
+  if (configured === 'testnet' || configured === 'mainnet') {
+    return configured;
+  }
+
+  if (configured) {
+    console.warn(
+      `TrustlessWork: Unrecognized NEXT_PUBLIC_TRUSTLESS_NETWORK value "${configured}". ` +
+        `Expected "testnet" or "mainnet". Falling back to the environment default.`
+    );
+  }
+
+  return isDevelopment ? 'testnet' : 'mainnet';
+}
+
+/**
  * Get the TrustlessWork configuration from environment variables
  *
  * @returns {TrustlessWorkConfigOptions} Configuration object for TrustlessWork
@@ -33,8 +65,7 @@ export function getTrustlessWorkConfig(): TrustlessWorkConfigOptions {
     : (process.env.NEXT_PUBLIC_TRUSTLESS_API_URL || TRUSTLESS_WORK_API_URLS.production);
 
   // Get the network configuration (defaults to testnet in development)
-  const network = (process.env.NEXT_PUBLIC_TRUSTLESS_NETWORK as 'testnet' | 'mainnet') ||
-    (isDevelopment ? 'testnet' : 'mainnet');
+  const network = resolveFrontendNetwork();
 
   if (!apiKey) {
     console.warn(
@@ -77,6 +108,52 @@ export function validateTrustlessWorkConfig(
   }
 
   return true;
+}
+
+/**
+ * Assert that the frontend network configuration agrees with the backend's
+ * `STELLAR_NETWORK` value.
+ *
+ * Both services configure testnet vs. mainnet independently, so a mismatch
+ * (e.g. frontend on testnet while the backend submits refunds on mainnet)
+ * would be a serious and confusing production issue. This helper is intended
+ * to be called from a startup/deploy-time check so such a mismatch is caught
+ * automatically rather than discovered in production.
+ *
+ * @param {string | undefined} backendNetwork - The backend's STELLAR_NETWORK value
+ * @param {'testnet' | 'mainnet'} [frontendNetwork] - Optional override; defaults to the resolved frontend network
+ * @returns {'testnet' | 'mainnet'} The validated, matching network
+ * @throws {Error} If the backend network is missing, unrecognized, or mismatched
+ */
+export function assertNetworkMatchesBackend(
+  backendNetwork: string | undefined,
+  frontendNetwork: 'testnet' | 'mainnet' = resolveFrontendNetwork()
+): 'testnet' | 'mainnet' {
+  const normalizedBackend = backendNetwork?.trim().toLowerCase();
+
+  if (!normalizedBackend) {
+    throw new Error(
+      'Network configuration error: backend STELLAR_NETWORK is not set. ' +
+        `Frontend is configured for "${frontendNetwork}".`
+    );
+  }
+
+  if (normalizedBackend !== 'testnet' && normalizedBackend !== 'mainnet') {
+    throw new Error(
+      `Network configuration error: backend STELLAR_NETWORK has unrecognized value ` +
+        `"${backendNetwork}". Expected "testnet" or "mainnet".`
+    );
+  }
+
+  if (normalizedBackend !== frontendNetwork) {
+    throw new Error(
+      `Network configuration mismatch: frontend NEXT_PUBLIC_TRUSTLESS_NETWORK is ` +
+        `"${frontendNetwork}" but backend STELLAR_NETWORK is "${normalizedBackend}". ` +
+        'Both services must target the same Stellar network.'
+    );
+  }
+
+  return frontendNetwork;
 }
 
 /**

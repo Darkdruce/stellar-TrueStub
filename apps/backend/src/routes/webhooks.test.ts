@@ -175,6 +175,56 @@ describe("POST /webhooks/escrow-status", () => {
     expect(updateEscrowStatus).not.toHaveBeenCalled();
   });
 
+  it("rejects a tampered payload that carries a valid signature for different bytes", async () => {
+    // Sign payload A...
+    const signedBody = JSON.stringify({
+      contractId: "contract-123",
+      engagementId: "ENG-001",
+      status: "completed",
+    });
+    const signatureForA = sign(signedBody);
+
+    // ...but send payload B (a different status) with A's signature.
+    const tamperedBody = JSON.stringify({
+      contractId: "contract-123",
+      engagementId: "ENG-001",
+      status: "released",
+    });
+    expect(tamperedBody).not.toBe(signedBody);
+
+    const res = await post(tamperedBody, {
+      "x-trustless-work-signature": signatureForA,
+    });
+
+    expect(res.status).toBe(401);
+    expect(updateEscrowStatus).not.toHaveBeenCalled();
+    expect(notifyEscrowStatusChange).not.toHaveBeenCalled();
+  });
+
+  it("rejects a payload whose bytes were modified after signing", async () => {
+    // Sign the exact bytes that will be sent...
+    const signedBody = JSON.stringify({
+      contractId: "contract-123",
+      engagementId: "ENG-001",
+      status: "completed",
+    });
+    const signature = sign(signedBody);
+
+    // ...then mutate the raw bytes (extra whitespace) while keeping the signature.
+    // A re-serialized/re-parsed body would normalize this away, so a 401 here
+    // proves verification runs against the raw captured bytes.
+    const tamperedBody = `${signedBody} `;
+    expect(tamperedBody).not.toBe(signedBody);
+
+    const res = await post(tamperedBody, {
+      "x-trustless-work-signature": signature,
+    });
+
+    expect(res.status).toBe(401);
+    expect(updateEscrowStatus).not.toHaveBeenCalled();
+    expect(notifyEscrowStatusChange).not.toHaveBeenCalled();
+  });
+
   it("fails closed with 500 when the webhook secret is not configured", async () => {
     (env as { TRUSTLESS_WORK_WEBHOOK_SECRET?: string }).TRUSTLESS_WORK_WEBHOOK_SECRET = undefined;
 
