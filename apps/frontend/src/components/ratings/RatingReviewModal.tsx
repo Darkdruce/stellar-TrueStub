@@ -125,11 +125,11 @@ export function RatingReviewModal({
                   size="lg"
                 />
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                  {rating === 5 && "{t("ratings.excellent")}"}
-                  {rating === 4 && "{t("ratings.good")}"}
-                  {rating === 3 && "{t("ratings.average")}"}
-                  {rating === 2 && "{t("ratings.poor")}"}
-                  {rating === 1 && "{t("ratings.terrible")}"}
+                  {rating === 5 && t("ratings.excellent")}
+                  {rating === 4 && t("ratings.good")}
+                  {rating === 3 && t("ratings.average")}
+                  {rating === 2 && t("ratings.poor")}
+                  {rating === 1 && t("ratings.terrible")}
                 </span>
               </div>
 
